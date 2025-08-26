@@ -1,0 +1,227 @@
+--[[ 
+    Cheat Menu by il00kiddd
+    С регуляторами скорости, прыжка и флая
+]]--
+
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+
+-- Переменные
+local espEnabled = false
+local espMarkers = {}
+
+-- UI Library
+local ScreenGui = Instance.new("ScreenGui", player.PlayerGui)
+ScreenGui.Name = "PremiumMenu"
+ScreenGui.ResetOnSpawn = false
+
+-- Главное меню
+local Main = Instance.new("Frame", ScreenGui)
+Main.Size = UDim2.new(0, 420, 0, 300)
+Main.Position = UDim2.new(0.3,0,0.2,0)
+Main.BackgroundColor3 = Color3.fromRGB(20,20,20)
+Main.BorderSizePixel = 0
+Main.Active = true
+Main.Draggable = true
+
+-- Заголовок
+local Title = Instance.new("TextLabel", Main)
+Title.Size = UDim2.new(1,0,0,30)
+Title.BackgroundTransparency = 1
+Title.Text = "💀 by il00kiddd 💀"
+Title.TextColor3 = Color3.new(1,1,1)
+Title.TextScaled = true
+Title.Font = Enum.Font.GothamBold
+
+-- Вкладки
+local Tabs = Instance.new("Frame", Main)
+Tabs.Size = UDim2.new(1,0,0,30)
+Tabs.Position = UDim2.new(0,0,0,30)
+Tabs.BackgroundTransparency = 1
+
+local TabNames = {"Movement","Universal","Visuals","Info"}
+local CurrentTab = "Movement"
+local Buttons = {}
+
+for i,name in ipairs(TabNames) do
+    local b = Instance.new("TextButton", Tabs)
+    b.Size = UDim2.new(0.24,0,1,0)
+    b.Position = UDim2.new(0.24*(i-1),0,0,0)
+    b.Text = name
+    b.BackgroundColor3 = Color3.fromRGB(30,30,30)
+    b.TextColor3 = Color3.fromRGB(200,200,200)
+    b.Font = Enum.Font.Gotham
+    b.TextScaled = true
+    Buttons[name]=b
+end
+
+-- Контейнер для вкладок
+local TabFrame = Instance.new("Frame", Main)
+TabFrame.Size = UDim2.new(1,0,1,-60)
+TabFrame.Position = UDim2.new(0,0,0,60)
+TabFrame.BackgroundTransparency = 1
+
+local function clearTab()
+    for _,v in pairs(TabFrame:GetChildren()) do v:Destroy() end
+end
+
+-- === ESP ===
+local function removeESPMarkers()
+    for _,m in pairs(espMarkers) do m:Destroy() end
+    espMarkers = {}
+end
+
+local function createESPMarkers()
+    removeESPMarkers()
+    for _,plr in pairs(Players:GetPlayers()) do
+        if plr~=player and plr.Character then
+            for _,part in pairs(plr.Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    local marker = Instance.new("BoxHandleAdornment")
+                    marker.Size = part.Size + Vector3.new(0.2,0.2,0.2)
+                    marker.Color3 = Color3.fromRGB(0,255,255)
+                    marker.Transparency = 0.3
+                    marker.AlwaysOnTop = true
+                    marker.ZIndex = 5
+                    marker.Adornee = part
+                    marker.Parent = part
+                    table.insert(espMarkers, marker)
+                end
+            end
+        end
+    end
+end
+
+-- === Создание UI элементов ===
+local function createToggle(tab,text,callback)
+    local b = Instance.new("TextButton",tab)
+    b.Size = UDim2.new(1,-10,0,30)
+    b.Position = UDim2.new(0,5,0,#tab:GetChildren()*35)
+    b.BackgroundColor3 = Color3.fromRGB(40,40,40)
+    b.TextColor3 = Color3.new(1,1,1)
+    b.TextScaled = true
+    b.Font = Enum.Font.Gotham
+    b.Text = text.." [OFF]"
+    local state=false
+    b.MouseButton1Click:Connect(function()
+        state=not state
+        b.Text = text.." ["..(state and "ON" or "OFF").."]"
+        callback(state)
+    end)
+    return b
+end
+
+local function createSlider(tab,label,min,max,default,onChange)
+    local frame = Instance.new("Frame",tab)
+    frame.Size = UDim2.new(1,-10,0,40)
+    frame.Position = UDim2.new(0,5,0,#tab:GetChildren()*45)
+    frame.BackgroundColor3 = Color3.fromRGB(35,35,35)
+
+    local title = Instance.new("TextLabel",frame)
+    title.Size = UDim2.new(1,0,0.4,0)
+    title.Text = label..": "..default
+    title.TextColor3 = Color3.new(1,1,1)
+    title.TextScaled = true
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.Gotham
+
+    local slider = Instance.new("TextButton",frame)
+    slider.Size = UDim2.new(1,0,0.6,0)
+    slider.Position = UDim2.new(0,0,0.4,0)
+    slider.BackgroundColor3 = Color3.fromRGB(50,50,50)
+    slider.Text = ""
+
+    local value = default
+    local dragging=false
+    slider.MouseButton1Down:Connect(function() dragging=true end)
+    UIS.InputEnded:Connect(function(input)
+        if input.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end
+    end)
+    RunService.RenderStepped:Connect(function()
+        if dragging then
+            local pos = math.clamp((UIS:GetMouseLocation().X-slider.AbsolutePosition.X)/slider.AbsoluteSize.X,0,1)
+            value = math.floor(min+(max-min)*pos)
+            title.Text = label..": "..value
+            onChange(value)
+        end
+    end)
+    return frame
+end
+
+-- === ТАБЫ ===
+local function openTab(name)
+    clearTab()
+    local Tab = Instance.new("Frame",TabFrame)
+    Tab.Size = UDim2.new(1,0,1,0)
+    Tab.BackgroundTransparency = 1
+    
+    if name=="Movement" then
+        local speedToggle = createToggle(Tab,"Speed Boost",function(on)
+            if on then player.Character.Humanoid.WalkSpeed=50 else player.Character.Humanoid.WalkSpeed=16 end
+        end)
+        createSlider(Tab,"Speed",16,150,50,function(val)
+            player.Character.Humanoid.WalkSpeed=val
+        end)
+
+        local jumpToggle = createToggle(Tab,"Jump Boost",function(on)
+            if on then player.Character.Humanoid.JumpPower=100 else player.Character.Humanoid.JumpPower=50 end
+        end)
+        createSlider(Tab,"Jump Power",50,200,100,function(val)
+            player.Character.Humanoid.JumpPower=val
+        end)
+
+        local flyToggle = createToggle(Tab,"Fly",function(on) end)
+        createSlider(Tab,"Fly Speed",1,10,3,function(val)
+            -- сохраняем скорость для флая
+        end)
+        
+    elseif name=="Universal" then
+        createToggle(Tab,"Noclip",function(on)
+            RunService.Stepped:Connect(function()
+                if on and player.Character then
+                    for _,v in pairs(player.Character:GetDescendants()) do
+                        if v:IsA("BasePart") then v.CanCollide=false end
+                    end
+                end
+            end)
+        end)
+        createToggle(Tab,"Infinite Jump",function(on)
+            if on then
+                UIS.JumpRequest:Connect(function()
+                    player.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+                end)
+            end
+        end)
+        createToggle(Tab,"Invisibility",function(on)
+            if player.Character then
+                for _,p in pairs(player.Character:GetDescendants()) do
+                    if p:IsA("BasePart") then
+                        p.Transparency = on and 1 or 0
+                    end
+                end
+            end
+        end)
+    elseif name=="Visuals" then
+        createToggle(Tab,"ESP Glow",function(on)
+            espEnabled=on
+            if on then createESPMarkers() else removeESPMarkers() end
+        end)
+    elseif name=="Info" then
+        local l = Instance.new("TextLabel",Tab)
+        l.Size = UDim2.new(1,0,1,0)
+        l.Text = "Made by il1sha"
+        l.Font = Enum.Font.GothamBold
+        l.TextScaled = true
+        l.TextColor3 = Color3.fromRGB(0,255,255)
+        l.BackgroundTransparency = 1
+    end
+end
+
+for name,btn in pairs(Buttons) do
+    btn.MouseButton1Click:Connect(function() openTab(name) end)
+end
+
+openTab("Movement")
